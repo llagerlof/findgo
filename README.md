@@ -13,6 +13,7 @@ When it finds a match:
 - Exact basename matching for files and directories
 - Works when sourced directly or through a shell function
 - Shows traversal counts for the successful match
+- Summarizes permission-denied traversal failures as a count
 - Includes `--help` and `--version`
 - Safe handling for spaces and shell-sensitive characters in paths
 
@@ -106,6 +107,7 @@ Run this script with: source ./findgo package.json
 - The search is based on the basename only, not a relative path.
 - Names containing `/` are rejected because the script matches a single file or directory name.
 - Search order follows the order produced by `find`, so the first match is the first one encountered during traversal.
+- Permission-denied traversal failures are suppressed during the search and reported as a final count instead.
 - If no match is found, the script exits with a non-zero status.
 
 ## License

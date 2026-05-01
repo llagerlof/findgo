@@ -2,11 +2,12 @@
 
 set -u
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 SCRIPT_NAME="$(basename -- "${BASH_SOURCE[0]}")"
 MATCH_PATH=""
 TRAVERSED_FILES=0
 TRAVERSED_DIRS=0
+PERMISSION_DENIED_COUNT=0
 
 is_sourced() {
     [[ "${BASH_SOURCE[0]}" != "$0" ]]
@@ -46,13 +47,48 @@ shell_quote() {
     printf '%s\n' "$quoted"
 }
 
+print_permission_summary() {
+    if [[ "$PERMISSION_DENIED_COUNT" -gt 0 ]]; then
+        printf 'Permission denied in %d directories.\n' "$PERMISSION_DENIED_COUNT"
+    fi
+}
+
+count_find_errors() {
+    local error_file line
+
+    error_file="$1"
+    PERMISSION_DENIED_COUNT=0
+
+    while IFS= read -r line; do
+        if [[ "$line" == *': Permission denied' ]]; then
+            ((PERMISSION_DENIED_COUNT += 1))
+            continue
+        fi
+
+        printf '%s\n' "$line" >&2
+    done < "$error_file"
+}
+
 find_first_match() {
-    local name path base
+    local name path base error_file found_match temp_dir find_pipe find_pid
 
     name="$1"
     MATCH_PATH=""
     TRAVERSED_FILES=0
     TRAVERSED_DIRS=0
+    found_match=1
+    temp_dir="$(mktemp -d)" || return 1
+    error_file="$temp_dir/find.stderr"
+    find_pipe="$temp_dir/find.pipe"
+
+    if ! mkfifo "$find_pipe"; then
+        rm -rf -- "$temp_dir"
+        return 1
+    fi
+
+    find . -mindepth 1 \( -type f -o -type d \) -print0 \
+        >"$find_pipe" 2>"$error_file" &
+    find_pid=$!
 
     while IFS= read -r -d '' path; do
         base="${path##*/}"
@@ -67,11 +103,17 @@ find_first_match() {
 
         if [[ "$base" == "$name" ]]; then
             MATCH_PATH="$path"
-            return 0
+            found_match=0
+            break
         fi
-    done < <(find . -mindepth 1 \( -type f -o -type d \) -print0)
+    done < "$find_pipe"
 
-    return 1
+    wait "$find_pid" 2>/dev/null || true
+
+    count_find_errors "$error_file"
+    rm -rf -- "$temp_dir"
+
+    return "$found_match"
 }
 
 main() {
@@ -106,6 +148,7 @@ main() {
     fi
 
     if ! find_first_match "$name"; then
+        print_permission_summary
         printf '%s\n' "File or directory not found: $name"
         return 1
     fi
@@ -118,6 +161,7 @@ main() {
 
     printf 'Traversed %d directories and %d files before the match.\n' \
         "$TRAVERSED_DIRS" "$TRAVERSED_FILES"
+    print_permission_summary
 
     if is_sourced; then
         cd -- "$target_dir" || return 1
