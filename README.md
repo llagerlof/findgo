@@ -1,41 +1,72 @@
 # findgo
 
-`findgo.sh` searches recursively from the current directory for the first file or directory with the given name.
+`findgo` is a small Bash helper that searches recursively from the current directory for the first file or directory whose basename matches a target name exactly.
 
-If it finds:
-- a directory, it changes into that directory
-- a file, it changes into the file's parent directory
+When it finds a match:
 
-## Install
+- If the match is a directory, it changes into that directory.
+- If the match is a file, it changes into the file's parent directory.
+- It reports how many directories and files were traversed before the match was found.
 
-1. Put `findgo.sh` somewhere permanent, for example:
+## Features
 
-   ```bash
-   mkdir -p ~/.local/bin
-   cp /home/lawrence/repos/findgo/findgo.sh ~/.local/bin/findgo.sh
-   chmod +x ~/.local/bin/findgo.sh
-   ```
+- Exact basename matching for files and directories
+- Works when sourced directly or through a shell function
+- Shows traversal counts for the successful match
+- Includes `--help` and `--version`
+- Safe handling for spaces and shell-sensitive characters in paths
 
-2. Add this function to your `~/.bashrc`:
+## Requirements
 
-   ```bash
-   findgo() {
-       source <~/.local/bin>/findgo.sh "$1"
-   }
-   ```
+- Bash
+- `find` from a standard Unix-like environment
 
-3. Reload Bash:
+## Installation
 
-   ```bash
-   source ~/.bashrc
-   ```
+The preferred installation method is to clone this repository into `~/repos/findgo`, then expose it through a shell function so it can change the current shell's directory.
+
+```bash
+mkdir -p ~/repos
+git clone https://github.com/llagerlof/findgo ~/repos/findgo
+chmod +x ~/repos/findgo/findgo
+```
+
+Add this function to your `~/.bashrc`, `~/.bash_profile`, or equivalent Bash startup file:
+
+```bash
+findgo() {
+    source ~/repos/findgo/findgo "$@"
+}
+```
+
+Reload your shell configuration:
+
+```bash
+source ~/.bashrc
+```
+
+If you prefer a standalone script install instead of keeping the repository checkout, you can copy the script to a permanent location and source it from there:
+
+```bash
+mkdir -p ~/.local/bin
+cp ./findgo ~/.local/bin/findgo
+chmod +x ~/.local/bin/findgo
+```
+
+Add this function to your `~/.bashrc`, `~/.bash_profile`, or equivalent Bash startup file:
+
+```bash
+findgo() {
+    source ~/.local/bin/findgo "$@"
+}
+```
 
 ## Usage
 
-Run it from the directory where you want the recursive search to start:
+Run `findgo` from the directory where you want the recursive search to start:
 
 ```bash
-findgo target_name
+findgo <name>
 ```
 
 Examples:
@@ -43,9 +74,40 @@ Examples:
 ```bash
 findgo package.json
 findgo src
+findgo README.md
+```
+
+Help and version:
+
+```bash
+findgo --help
+findgo --version
+```
+
+## Example Output
+
+```text
+$ findgo package.json
+Traversed 3 directories and 8 files before the match.
+Changed directory to: /home/user/project/app
+```
+
+If you run the script directly instead of sourcing it, it will still search and report the match, but it cannot change the current shell directory:
+
+```text
+$ ./findgo package.json
+Traversed 3 directories and 8 files before the match.
+Found in: ./app
+Run this script with: source ./findgo package.json
 ```
 
 ## Notes
 
-- The script must be sourced, directly or through a shell function, because `cd` must run in your current shell.
-- If you execute the script normally, it can only print the matching directory. It cannot change your shell's current directory.
+- The search is based on the basename only, not a relative path.
+- Names containing `/` are rejected because the script matches a single file or directory name.
+- Search order follows the order produced by `find`, so the first match is the first one encountered during traversal.
+- If no match is found, the script exits with a non-zero status.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
