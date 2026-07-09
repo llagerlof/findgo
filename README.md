@@ -10,7 +10,7 @@ When it finds a match:
 
 ## Features
 
-- Exact basename matching for files and directories
+- Exact basename matching for files and directories, with a substring fallback so targets like "admin" can match names such as "linux-admin.md"
 - Works when sourced directly or through a shell function
 - Shows traversal counts for the successful match
 - Summarizes permission-denied traversal failures as a count
@@ -105,6 +105,7 @@ Run this script with: source ./findgo package.json
 ## Notes
 
 - The search is based on the basename only, not a relative path.
+- If no exact basename match exists, a substring match against the basename is also accepted.
 - Names containing `/` are rejected because the script matches a single file or directory name.
 - Search order follows the order produced by `find`, so the first match is the first one encountered during traversal.
 - Permission-denied traversal failures are suppressed during the search and reported as a final count instead.

@@ -101,7 +101,7 @@ find_first_match() {
             continue
         fi
 
-        if [[ "$base" == "$name" ]]; then
+        if [[ "$base" == "$name" ]] || [[ "$base" == *"$name"* ]]; then
             MATCH_PATH="$path"
             found_match=0
             break
