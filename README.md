@@ -107,7 +107,7 @@ Run this script with: source ./findgo package.json
 - The search is based on the basename only, not a relative path.
 - If no exact basename match exists, a substring match against the basename is also accepted.
 - Names containing `/` are rejected because the script matches a single file or directory name.
-- Search order follows the order produced by `find`, so the first match is the first one encountered during traversal.
+- Search order is breadth-first by directory depth (current directory, then level 1, level 2, and so on), and within each depth the newest entries by modification time are checked first.
 - Permission-denied traversal failures are suppressed during the search and reported as a final count instead.
 - If no match is found, the script exits with a non-zero status.
 

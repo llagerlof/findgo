@@ -2,7 +2,7 @@
 
 set -u
 
-VERSION="1.2.0"
+VERSION="1.3.0"
 SCRIPT_NAME="$(basename -- "${BASH_SOURCE[0]}")"
 MATCH_PATH=""
 TRAVERSED_FILES=0
@@ -70,7 +70,7 @@ count_find_errors() {
 }
 
 find_first_match() {
-    local name path base error_file found_match temp_dir find_pipe find_pid
+    local name path base error_file found_match temp_dir level any_entry record
 
     name="$1"
     MATCH_PATH=""
@@ -79,36 +79,46 @@ find_first_match() {
     found_match=1
     temp_dir="$(mktemp -d)" || return 1
     error_file="$temp_dir/find.stderr"
-    find_pipe="$temp_dir/find.pipe"
-
-    if ! mkfifo "$find_pipe"; then
-        rm -rf -- "$temp_dir"
-        return 1
+    # Check the current directory itself before traversing deeper levels.
+    base="${PWD##*/}"
+    if [[ "$base" == "$name" ]] || [[ "$base" == *"$name"* ]]; then
+        MATCH_PATH="."
+        found_match=0
     fi
+    level=1
 
-    find . -mindepth 1 \( -type f -o -type d \) -print0 \
-        >"$find_pipe" 2>"$error_file" &
-    find_pid=$!
+    while [[ "$found_match" -ne 0 ]]; do
+        any_entry=0
 
-    while IFS= read -r -d '' path; do
-        base="${path##*/}"
+        while IFS= read -r -d '' record; do
+            any_entry=1
+            path="${record#*$'\t'}"
+            base="${path##*/}"
 
-        if [[ -d "$path" ]]; then
-            ((TRAVERSED_DIRS += 1))
-        elif [[ -f "$path" ]]; then
-            ((TRAVERSED_FILES += 1))
-        else
-            continue
-        fi
+            if [[ -d "$path" ]]; then
+                ((TRAVERSED_DIRS += 1))
+            elif [[ -f "$path" ]]; then
+                ((TRAVERSED_FILES += 1))
+            else
+                continue
+            fi
 
-        if [[ "$base" == "$name" ]] || [[ "$base" == *"$name"* ]]; then
-            MATCH_PATH="$path"
-            found_match=0
+            if [[ "$base" == "$name" ]] || [[ "$base" == *"$name"* ]]; then
+                MATCH_PATH="$path"
+                found_match=0
+                break
+            fi
+        done < <(
+            find . -mindepth "$level" -maxdepth "$level" \( -type f -o -type d \) -printf '%T@\t%p\0' 2>>"$error_file" |
+                sort -z -t $'\t' -k1,1nr
+        )
+
+        if [[ "$found_match" -eq 0 ]] || [[ "$any_entry" -eq 0 ]]; then
             break
         fi
-    done < "$find_pipe"
 
-    wait "$find_pid" 2>/dev/null || true
+        ((level += 1))
+    done
 
     count_find_errors "$error_file"
     rm -rf -- "$temp_dir"
